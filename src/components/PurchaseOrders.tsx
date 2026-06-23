@@ -149,7 +149,7 @@ export default function PurchaseOrders({
             if (suppliers.length > 0) setSupId(suppliers[0].id);
             if (products.length > 0) setOrderItems([{ product_id: products[0].id, quantity_ordered: 10, unit_price: products[0].unit_price }]);
           }}
-          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 hover:shadow-indigo-600/20 active:translate-y-px transition-all cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer"
         >
           <Plus size={16} />
           <span>Draft PO</span>
@@ -166,7 +166,7 @@ export default function PurchaseOrders({
       {showCreateForm && (
         <form onSubmit={handleCreatePO} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 max-w-3xl">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-2">
-            <h3 className="text-xs font-bold text-indigo-400 bg-slate-950 px-3 py-1.5 rounded-md w-fit border border-slate-850 font-mono tracking-wider">PO DRAFT INITIALIZATION</h3>
+            <h3 className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-md w-fit border border-amber-200/50 font-mono tracking-wider">PO DRAFT INITIALIZATION</h3>
             <button type="button" onClick={() => setShowCreateForm(false)} className="text-slate-400 hover:text-slate-600 text-xs">Cancel</button>
           </div>
           
@@ -230,12 +230,12 @@ export default function PurchaseOrders({
               </div>
             ))}
             
-            <button type="button" onClick={addOrderItemRow} className="text-xs text-blue-600 hover:text-blue-700 font-bold border border-blue-100 px-3 py-1.5 rounded-lg bg-blue-50/50 cursor-pointer">
+            <button type="button" onClick={addOrderItemRow} className="text-xs text-amber-800 hover:text-amber-900 font-bold border border-amber-200/50 px-3 py-1.5 rounded-lg bg-amber-50/50 cursor-pointer">
               + Append product item row
             </button>
           </div>
 
-          <button disabled={loading} type="submit" className="w-full text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-lg cursor-pointer transition-colors shadow-sm shadow-indigo-600/10">
+          <button disabled={loading} type="submit" className="w-full text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 py-2.5 rounded-lg cursor-pointer transition-colors shadow-sm shadow-amber-700/10">
             {loading ? "INITIALIZING PO..." : "COMMISSIONS PO PURCHASE ORDER"}
           </button>
         </form>
@@ -365,8 +365,8 @@ export default function PurchaseOrders({
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                         po.status === "received" ? "bg-emerald-50 text-emerald-600" :
-                        po.status === "partial" ? "bg-amber-50 text-amber-600" :
-                        po.status === "sent" ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-600"
+                        po.status === "partial" ? "bg-stone-100 text-stone-700" :
+                        po.status === "sent" ? "bg-amber-50 text-amber-700 font-semibold" : "bg-slate-100 text-slate-600"
                       }`}>
                         {po.status}
                       </span>

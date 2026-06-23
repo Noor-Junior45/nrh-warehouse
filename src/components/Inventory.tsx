@@ -91,7 +91,7 @@ export default function Inventory({
               setShowAdjustModal(true);
             }}
             id="adjust-stock-btn"
-            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 hover:shadow-indigo-600/20 active:translate-y-px transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Manual Adjust Stock</span>
@@ -204,7 +204,7 @@ export default function Inventory({
                 <input placeholder="Reason for inventory shift" type="text" value={notes} onChange={e => setNotes(e.target.value)} className="text-xs w-full p-2 border border-slate-200 rounded-lg" />
               </div>
 
-              <button disabled={loading} type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-sm">
+              <button disabled={loading} type="submit" className="w-full py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-sm">
                 {loading ? "PROFILING..." : "COMMIT INVENTORY ADJUSTMENT"}
               </button>
             </form>

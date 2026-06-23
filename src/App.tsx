@@ -17,7 +17,11 @@ import {
   FileSpreadsheet, 
   Settings,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  ShoppingBag,
+  User as UserIcon,
+  Menu,
+  X
 } from "lucide-react";
 
 // Types
@@ -36,14 +40,20 @@ import PurchaseOrders from "./components/PurchaseOrders";
 import DispatchOrders from "./components/DispatchOrders";
 import Movements from "./components/Movements";
 import Billing from "./components/Billing";
+import Store from "./components/Store";
+import Profile from "./components/Profile";
 
 export default function App() {
   // Current Auth Session State
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("wms_token"));
+  const [token, setToken] = useState<string | null>(() => {
+    const t = localStorage.getItem("wms_token");
+    return (t === "null" || t === "undefined" || !t) ? null : t;
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem("wms_user");
-      return saved ? JSON.parse(saved) : null;
+      if (!saved || saved === "null" || saved === "undefined") return null;
+      return JSON.parse(saved);
     } catch {
       return null;
     }
@@ -51,7 +61,8 @@ export default function App() {
   const [organization, setOrganization] = useState<Organization | null>(() => {
     try {
       const saved = localStorage.getItem("wms_org");
-      return saved ? JSON.parse(saved) : null;
+      if (!saved || saved === "null" || saved === "undefined") return null;
+      return JSON.parse(saved);
     } catch {
       return null;
     }
@@ -67,8 +78,21 @@ export default function App() {
   const [authError, setAuthError] = useState("");
 
   // WMS Operational Lists State
-  const [activeTab, setActiveTab] = useState<"overview" | "warehouses" | "products" | "suppliers" | "inventory" | "purchase" | "dispatch" | "movements" | "billing">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "warehouses" | "products" | "suppliers" | "inventory" | "purchase" | "dispatch" | "movements" | "billing" | "store" | "profile">("overview");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // Dynamic Industry-Grade Custom Themes and Density Settings
+  const [themeColor, setThemeColor] = useState<string>(() => localStorage.getItem("wms_theme_color") || "amber");
+  const [density, setDensity] = useState<"comfortable" | "compact">(() => (localStorage.getItem("wms_density") as any) || "comfortable");
+
+  useEffect(() => {
+    localStorage.setItem("wms_theme_color", themeColor);
+  }, [themeColor]);
+
+  useEffect(() => {
+    localStorage.setItem("wms_density", density);
+  }, [density]);
+
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -101,47 +125,47 @@ export default function App() {
       // 1. Warehouses
       const whRes = await fetch("/api/v1/warehouses", { headers: getHeaders() });
       const whData = await whRes.json();
-      if (whData.success) setWarehouses(whData.data);
+      if (whData.success && Array.isArray(whData.data)) setWarehouses(whData.data);
 
       // 2. Zones
       const zoneRes = await fetch("/api/v1/zones", { headers: getHeaders() });
       const zoneData = await zoneRes.json();
-      if (zoneData.success) setZones(zoneData.data);
+      if (zoneData.success && Array.isArray(zoneData.data)) setZones(zoneData.data);
 
       // 3. Products
       const prodRes = await fetch("/api/v1/products", { headers: getHeaders() });
       const prodData = await prodRes.json();
-      if (prodData.success) setProducts(prodData.data);
+      if (prodData.success && Array.isArray(prodData.data)) setProducts(prodData.data);
 
       // 4. Suppliers
       const supRes = await fetch("/api/v1/suppliers", { headers: getHeaders() });
       const supData = await supRes.json();
-      if (supData.success) setSuppliers(supData.data);
+      if (supData.success && Array.isArray(supData.data)) setSuppliers(supData.data);
 
       // 5. Inventory levels
       const invRes = await fetch("/api/v1/inventory", { headers: getHeaders() });
       const invData = await invRes.json();
-      if (invData.success) setInventory(invData.data);
+      if (invData.success && Array.isArray(invData.data)) setInventory(invData.data);
 
       // 6. Purchase Orders
       const poRes = await fetch("/api/v1/purchase-orders", { headers: getHeaders() });
       const poData = await poRes.json();
-      if (poData.success) setPurchaseOrders(poData.data);
+      if (poData.success && Array.isArray(poData.data)) setPurchaseOrders(poData.data);
 
       // 7. Dispatch Orders
       const doRes = await fetch("/api/v1/dispatch-orders", { headers: getHeaders() });
       const doData = await doRes.json();
-      if (doData.success) setDispatchOrders(doData.data);
+      if (doData.success && Array.isArray(doData.data)) setDispatchOrders(doData.data);
 
       // 8. Stock Movements audit
       const moveRes = await fetch("/api/v1/stock-movements", { headers: getHeaders() });
       const moveData = await moveRes.json();
-      if (moveData.success) setStockMovements(moveData.data);
+      if (moveData.success && Array.isArray(moveData.data)) setStockMovements(moveData.data);
 
       // 9. API integration keys
       const keysRes = await fetch("/api/v1/billing/api-keys", { headers: getHeaders() });
       const keysData = await keysRes.json();
-      if (keysData.success) setApiKeys(keysData.data);
+      if (keysData.success && Array.isArray(keysData.data)) setApiKeys(keysData.data);
 
       // 10. SaaS billing dashboard logs
       const infoRes = await fetch("/api/v1/billing/summary", { headers: getHeaders() });
@@ -457,50 +481,59 @@ export default function App() {
   // UNAUTHENTICATED: Auth Portal
   if (!token || !currentUser || !organization) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
-        <div className="bg-slate-950 rounded-2xl p-6 md:p-8 w-full max-w-md border border-slate-800/80 shadow-2xl flex flex-col justify-between">
+      <div className="min-h-screen bg-[#faf8f2] flex items-center justify-center p-4 selection:bg-orange-100 selection:text-orange-900 font-sans relative overflow-hidden">
+        {/* Decorative backdrop elements */}
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-80 h-80 rounded-full bg-orange-200/25 blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-72 h-72 rounded-full bg-amber-100/35 blur-3xl pointer-events-none"></div>
+
+        <div className="bg-white/70 backdrop-blur-md border border-white/45 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-[0_12px_40px_rgba(40,40,40,0.03)] flex flex-col justify-between relative z-10">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-indigo-600/15 p-2 px-2.5 text-indigo-400 rounded-lg border border-indigo-500/20 shadow-xs">
-                <Building2 size={24} />
+            <div className="flex items-center gap-3.5 mb-2">
+              <div className="bg-white/90 p-1.5 rounded-xl border border-stone-200/60 shadow-sm flex items-center justify-center shrink-0">
+                <img 
+                  src="https://i.imgur.com/FsP49VA.png" 
+                  alt="NRH Warehouse Management Logo" 
+                  className="h-10 w-auto object-contain" 
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-100 tracking-tight">SaaS WMS Backend Console</h1>
-                <p className="text-xs text-indigo-400 font-medium">Multi-tenant Relational Platform</p>
+                <h1 className="text-sm font-black text-stone-900 tracking-tight uppercase">NRH WAREHOUSE SYSTEMS</h1>
+                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest">Multi-tenant Cloud Terminal</p>
               </div>
             </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-[11px] leading-relaxed text-slate-300">
-              <div className="font-semibold text-slate-105 mb-1 flex items-center gap-1.5">
-                <Fingerprint size={12} className="text-indigo-400" />
-                <span>Pre-configured Manager Accounts available:</span>
+ 
+            <div className="bg-stone-950 border border-stone-800 p-4 rounded-2xl text-[11px] leading-relaxed text-stone-300 font-mono">
+              <div className="font-semibold text-white mb-1.5 flex items-center gap-1.5 border-b border-stone-800 pb-1">
+                <Fingerprint size={12} className="text-orange-500" />
+                <span className="text-orange-400">MANAGER SECURE PRESETS:</span>
               </div>
-              <ul className="list-disc pl-4 space-y-1 text-slate-400 font-mono">
-                <li>Email: <strong className="text-slate-200 font-medium">mdnoor4860@gmail.com</strong></li>
-                <li>Password: <strong className="text-slate-200 font-medium">password123</strong></li>
+              <ul className="space-y-1 text-stone-300">
+                <li><span className="text-stone-500">Email:</span> mdnoor4860@gmail.com</li>
+                <li><span className="text-stone-500">Password:</span> password123</li>
               </ul>
             </div>
-
+ 
             {authError && (
-              <div className="p-3.5 bg-rose-950/70 border border-rose-850 text-rose-300 text-xs rounded-xl font-medium">
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-850 text-xs rounded-xl font-medium">
                 {authError}
               </div>
             )}
-
+ 
             <form onSubmit={handleAuthExchange} className="space-y-3">
               {isRegisterMode && (
-                <div className="space-y-3 border-b border-slate-800 pb-3 mb-3">
+                <div className="space-y-3 border-b border-stone-100 pb-3 mb-3">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-wider font-bold">Contact Person *</label>
-                    <input required type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Amit Patel" className="w-full text-xs p-2.5 bg-slate-900 hover:bg-slate-850 outline-none rounded-lg border border-slate-800 text-slate-105 transition-colors focus:border-indigo-600" />
+                    <label className="text-[10px] text-stone-500 block mb-1 uppercase tracking-wider font-bold">Contact Person *</label>
+                    <input required type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Amit Patel" className="w-full text-xs p-2.5 bg-white/70 hover:bg-stone-50/50 outline-none rounded-xl border border-stone-200 text-stone-900 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-wider font-bold">Organization Name *</label>
-                    <input required type="text" value={authOrgName} onChange={e => setAuthOrgName(e.target.value)} placeholder="Mittal Logistics India" className="w-full text-xs p-2.5 bg-slate-900 hover:bg-slate-850 outline-none rounded-lg border border-slate-800 text-slate-105 transition-colors focus:border-indigo-600" />
+                    <label className="text-[10px] text-stone-500 block mb-1 uppercase tracking-wider font-bold">Organization Name *</label>
+                    <input required type="text" value={authOrgName} onChange={e => setAuthOrgName(e.target.value)} placeholder="Mittal Logistics India" className="w-full text-xs p-2.5 bg-white/70 hover:bg-stone-50/50 outline-none rounded-xl border border-stone-200 text-stone-900 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-wider font-bold">Industry Sector</label>
-                    <select value={authBusinessType} onChange={e => setAuthBusinessType(e.target.value as any)} className="w-full text-xs p-2.5 bg-slate-900 outline-none rounded-lg border border-slate-800 text-slate-105 transition-colors focus:border-indigo-600">
+                    <label className="text-[10px] text-stone-500 block mb-1 uppercase tracking-wider font-bold">Industry Sector</label>
+                    <select value={authBusinessType} onChange={e => setAuthBusinessType(e.target.value as any)} className="w-full text-xs p-2.5 bg-white outline-none rounded-xl border border-stone-200 text-stone-900 transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500">
                       <option value="ecommerce">E-Commerce Center</option>
                       <option value="retail">Retail Distribution</option>
                       <option value="manufacturing">Manufacturing Alloys</option>
@@ -510,35 +543,35 @@ export default function App() {
                   </div>
                 </div>
               )}
-
+ 
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-wider font-bold">Credentials Email *</label>
-                <input required type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="w-full text-xs p-2.5 bg-slate-900 hover:bg-slate-850 outline-none rounded-lg border border-slate-800 text-slate-105 font-mono transition-colors focus:border-indigo-600" />
+                <label className="text-[10px] text-stone-500 block mb-1 uppercase tracking-wider font-bold">Credentials Email *</label>
+                <input required type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="w-full text-xs p-2.5 bg-white/70 hover:bg-stone-50/50 outline-none rounded-xl border border-stone-200 text-stone-900 font-mono transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500" />
               </div>
               
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1 uppercase tracking-wider font-bold">Secrets Password *</label>
-                <input required type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full text-xs p-2.5 bg-slate-900 hover:bg-slate-850 outline-none rounded-lg border border-slate-800 text-slate-105 font-mono transition-colors focus:border-indigo-600" />
+                <label className="text-[10px] text-stone-500 block mb-1 uppercase tracking-wider font-bold">Secrets Password *</label>
+                <input required type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="w-full text-xs p-2.5 bg-white/70 hover:bg-stone-50/50 outline-none rounded-xl border border-stone-200 text-stone-900 font-mono transition-colors focus:border-orange-500 focus:ring-1 focus:ring-orange-500" />
               </div>
-
+ 
               <button 
                 id="sum-auth-btn"
                 type="submit" 
-                className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-750 rounded-lg text-xs font-semibold tracking-wider cursor-pointer transition-all duration-150 shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:translate-y-px"
+                className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold tracking-wider cursor-pointer transition-all duration-150 shadow-md shadow-orange-600/15 hover:shadow-orange-600/30 active:scale-[0.98]"
               >
-                {isRegisterMode ? "REGISTER NEW TENANT" : "INITIALIZE DASHBOARD"}
+                {isRegisterMode ? "REGISTER NEW TENANT" : "INITIALIZE TERMINAL SECURE"}
               </button>
             </form>
           </div>
-
-          <div className="border-t border-slate-800/80 mt-6 pt-4 text-center">
+ 
+          <div className="border-t border-stone-200/60 mt-6 pt-4 text-center">
             <button 
               type="button" 
               onClick={() => {
                 setIsRegisterMode(!isRegisterMode);
                 setAuthError("");
               }}
-              className="text-indigo-400 hover:text-indigo-300 text-xs cursor-pointer font-medium transition-all"
+              className="text-stone-850 hover:text-orange-600 text-xs cursor-pointer font-bold transition-all uppercase tracking-wider"
             >
               {isRegisterMode ? "Already a tenant? Initialize Session" : "Create new Tenant organization account →"}
             </button>
@@ -549,162 +582,445 @@ export default function App() {
   }
 
   // AUTHENTICATED: Dashboard layout
+  const densityStyles = density === "compact" ? `
+    /* Compact Operations - Tighter spacing, padding, and text sizing offsets */
+    .space-y-6 { margin-top: 0.85rem !important; margin-bottom: 0.85rem !important; }
+    .space-y-5 { margin-top: 0.7rem !important; margin-bottom: 0.7rem !important; }
+    .p-5 { padding: 0.85rem !important; }
+    .p-6 { padding: 1rem !important; }
+    .p-8 { padding: 1.25rem !important; }
+    .py-2.5 { padding-top: 0.45rem !important; padding-bottom: 0.45rem !important; }
+    .py-3 { padding-top: 0.55rem !important; padding-bottom: 0.55rem !important; }
+    .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+    .h-9 { height: 2rem !important; }
+    .gap-6 { gap: 1rem !important; }
+    table tr th, table tr td { padding-top: 0.45rem !important; padding-bottom: 0.45rem !important; font-size: 11px !important; }
+    .text-sm { font-size: 12px !important; }
+    .text-xs { font-size: 11px !important; }
+  ` : "";
+
+  const themeOverrides = `
+    :root {
+      ${themeColor === "amber" ? `
+        --color-amber-50: #fdfaf4; /* Soft velvet cream */
+        --color-amber-100: #ffedd5; /* Delicious orange-cream milk */
+        --color-amber-200: #fed7aa; /* Soft coral orange border */
+        --color-amber-500: #ff6f00; /* Brilliant active brand orange */
+        --color-amber-600: #e65100; /* Rich intense orange icon accent */
+        --color-amber-700: #d32f2f; /* Deep action status */
+        --color-amber-750: #b71c1c; /* Terracotta deep tone */
+        --color-amber-800: #1b1a17; /* Solid charcoal operational black */
+        --color-amber-900: #0a0908; /* Luxury obsidian midnight black */
+        --color-amber-950: #020202; /* Stark dark panel header */
+      ` : themeColor === "emerald" ? `
+        --color-amber-50: #ecfdf5;
+        --color-amber-100: #d1fae5;
+        --color-amber-200: #a7f3d0;
+        --color-amber-500: #10b981;
+        --color-amber-600: #059669;
+        --color-amber-700: #047857;
+        --color-amber-750: #047857;
+        --color-amber-800: #065f46;
+        --color-amber-900: #064e3b;
+        --color-amber-950: #022c22;
+      ` : themeColor === "blue" ? `
+        --color-amber-50: #eff6ff;
+        --color-amber-100: #dbeafe;
+        --color-amber-200: #bfdbfe;
+        --color-amber-500: #3b82f6;
+        --color-amber-600: #2563eb;
+        --color-amber-700: #1d4ed8;
+        --color-amber-750: #1d4ed8;
+        --color-amber-800: #1e40af;
+        --color-amber-900: #1e3a8a;
+        --color-amber-950: #172554;
+      ` : themeColor === "rose" ? `
+        --color-amber-50: #fff1f2;
+        --color-amber-100: #ffe4e6;
+        --color-amber-200: #fecdd3;
+        --color-amber-500: #f43f5e;
+        --color-amber-600: #e11d48;
+        --color-amber-700: #be123c;
+        --color-amber-750: #be123c;
+        --color-amber-800: #9f1239;
+        --color-amber-900: #881337;
+        --color-amber-950: #4c0519;
+      ` : themeColor === "slate" ? `
+        --color-amber-50: #fbfbfb;
+        --color-amber-100: #f4f4f5;
+        --color-amber-200: #e4e4e7;
+        --color-amber-505: #52525b;
+        --color-amber-500: #71717a;
+        --color-amber-600: #52525b;
+        --color-amber-700: #3f3f46;
+        --color-amber-750: #27272a;
+        --color-amber-800: #18181b;
+        --color-amber-900: #09090b;
+        --color-amber-950: #030303;
+      ` : `
+        --color-amber-50: #fdfaf4; /* Soft velvet cream */
+        --color-amber-100: #ffedd5; /* Delicious orange-cream milk */
+        --color-amber-200: #fed7aa; /* Soft coral orange border */
+        --color-amber-500: #ff6f00; /* Brilliant active brand orange */
+        --color-amber-600: #e65100; /* Rich intense orange icon accent */
+        --color-amber-700: #ea580c; /* Focus brick orange button */
+        --color-amber-750: #c2410c; /* Accent dark terracotta */
+        --color-amber-800: #1b1a17; /* Solid charcoal operational black */
+        --color-amber-900: #0a0908; /* Luxury obsidian midnight black */
+        --color-amber-950: #020202; /* Stark dark panel header */
+      `}
+    }
+    
+    /* Elegant global body override for beautiful cream and glass */
+    body {
+      background-color: #fcfbf6 !important;
+      background-image: radial-gradient(circle at 10% 20%, rgba(255, 111, 0, 0.02) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(253, 250, 244, 0.9) 0%, transparent 60%) !important;
+    }
+  `;
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-800 selection:bg-indigo-100 selection:text-indigo-700">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#fafbf6] text-stone-850 selection:bg-orange-100 selection:text-orange-955 font-sans">
+      
+      {/* Dynamic Style Injection */}
+      <style>{densityStyles}</style>
+      <style>{themeOverrides}</style>
       
       {/* Dynamic busy sync modal mask */}
       {loadingMsg && (
-        <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-indigo-400 text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-slate-800 font-mono">
-          <Database size={14} className="animate-pulse text-indigo-500" />
+        <div className="fixed bottom-4 right-4 z-50 bg-stone-950/90 text-orange-400 text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 border border-stone-800 font-mono backdrop-blur-md">
+          <Database size={14} className="animate-pulse text-orange-500" />
           <span>{loadingMsg}</span>
         </div>
       )}
 
-      {/* Sidebar navigation */}
-      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 font-sans">
-        <div>
-          {/* Tenant top header */}
-          <div className="p-5 border-b border-slate-800 bg-slate-950/70">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 bg-indigo-600 text-white rounded shadow-sm">
-                <WHIcon size={18} />
+      {/* MOBILE TOP BAR (Sticky, Glassmorphic Cream Screen layout) */}
+      <header className="md:hidden sticky top-0 z-40 w-full bg-white/75 backdrop-blur-md border-b border-stone-250/20 px-4 py-3.5 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2">
+          <div className="bg-white p-1 rounded-lg border border-stone-200/50 flex items-center justify-center">
+            <img 
+              src="https://i.imgur.com/FsP49VA.png" 
+              alt="NRH Warehouse Management Logo" 
+              className="h-7 w-auto object-contain" 
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div>
+            <span className="block text-xs font-black tracking-tight text-stone-900 leading-none">NRH WAREHOUSE</span>
+            <span className="text-[9px] text-[#ff6f00] font-bold uppercase tracking-wider">{organization.name}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setActiveTab("profile")}
+            className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-600 cursor-pointer"
+            title="User Profile"
+          >
+            <UserIcon size={18} />
+          </button>
+          
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-850 cursor-pointer transition-colors"
+            title="Toggle Menu"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE FULL-SCREEN GLASS DRAWER */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 top-[57px] z-30 bg-white/95 backdrop-blur-lg flex flex-col justify-between p-6 overflow-y-auto animate-in fade-in slide-in-from-top-4 duration-250 md:hidden">
+          <div className="space-y-6">
+            <div>
+              <span className="text-[10px] text-stone-400 uppercase tracking-widest font-black block mb-2">Operational Controls</span>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button 
+                  onClick={() => { setActiveTab("overview"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "overview" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <TrendingUp size={14} className="text-orange-550" />
+                  <span>Dashboard</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("warehouses"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "warehouses" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <WHIcon size={14} className="text-orange-550" />
+                  <span>Warehouses</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("products"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "products" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <Package size={14} className="text-orange-550" />
+                  <span>SKU Catalog</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("inventory"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "inventory" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <Database size={14} className="text-orange-550" />
+                  <span>Stock Levels</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("suppliers"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "suppliers" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <Users size={14} className="text-orange-550" />
+                  <span>Suppliers</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("store"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "store" ? "bg-orange-50 border-orange-200 text-orange-900" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <ShoppingBag size={14} className="text-orange-650" />
+                  <span>B2B Store</span>
+                </button>
               </div>
-              <div className="min-w-0">
-                <h1 className="text-sm font-bold text-slate-105 tracking-tight truncate">
-                  {organization.name}
-                </h1>
-                <span className="text-[9px] bg-indigo-950/40 text-indigo-300 border border-indigo-900/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider block w-fit mt-1">
-                  {organization.business_type}
-                </span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] text-stone-400 uppercase tracking-widest font-black block">Logistics Handshake</span>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button 
+                  onClick={() => { setActiveTab("purchase"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "purchase" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <FileSpreadsheet size={14} className="text-orange-550" />
+                  <span>Inbound POs</span>
+                </button>
+
+                <button 
+                  onClick={() => { setActiveTab("dispatch"); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-2 p-3 rounded-2xl font-bold border ${activeTab === "dispatch" ? "bg-orange-50 text-orange-950 border-orange-200" : "bg-stone-50/60 text-stone-600 border-stone-100"}`}
+                >
+                  <ClipboardList size={14} className="text-orange-550" />
+                  <span>Outbounds</span>
+                </button>
               </div>
+            </div>
+
+            <div className="space-y-2 border-t border-stone-100 pt-4">
+              <button 
+                onClick={() => { setActiveTab("profile"); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-bold text-xs ${activeTab === "profile" ? "bg-orange-50 text-orange-900" : "text-stone-700"}`}
+              >
+                <UserIcon size={15} className="text-orange-600" />
+                <span>My Tenant Profile</span>
+              </button>
+
+              <button 
+                onClick={() => { setActiveTab("billing"); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-bold text-xs ${activeTab === "billing" ? "bg-orange-50 text-orange-900" : "text-stone-700"}`}
+              >
+                <Key size={15} />
+                <span>SaaS Settings (Billing)</span>
+              </button>
             </div>
           </div>
 
-          {/* Nav buttons */}
-          <nav className="p-4 space-y-1 text-xs">
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest block px-3 mb-2 font-bold select-none">Internal Operations</span>
-            
-            <button 
-              onClick={() => setActiveTab("overview")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "overview" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <TrendingUp size={15} />
-              <span>Dashboard Home</span>
-            </button>
-
-            <button 
-              id="tab-warehouses"
-              onClick={() => setActiveTab("warehouses")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "warehouses" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <WHIcon size={15} />
-              <span>Warehouses & Zones</span>
-            </button>
-
-            <button 
-              id="tab-products"
-              onClick={() => setActiveTab("products")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "products" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <Package size={15} />
-              <span>Active SKU Catalog</span>
-            </button>
-
-            <button 
-              id="tab-suppliers"
-              onClick={() => setActiveTab("suppliers")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "suppliers" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <Users size={15} />
-              <span>Procure Suppliers</span>
-            </button>
-
-            <button 
-              id="tab-inventory"
-              onClick={() => setActiveTab("inventory")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "inventory" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <Database size={15} />
-              <span>Real-Time Stock levels</span>
-            </button>
-
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest block px-3 pt-4 mb-2 font-bold select-none">Logistics pipeline</span>
-
-            <button 
-              id="tab-purchase"
-              onClick={() => setActiveTab("purchase")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "purchase" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <FileSpreadsheet size={15} />
-              <span>Inbound Orders (POs)</span>
-            </button>
-
-            <button 
-              id="tab-dispatch"
-              onClick={() => setActiveTab("dispatch")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "dispatch" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <ClipboardList size={15} />
-              <span>Outbound Dispatches</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveTab("movements")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "movements" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <History size={15} />
-              <span>Integrations Log</span>
-            </button>
-
-            <button 
-              id="tab-billing"
-              onClick={() => setActiveTab("billing")}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left font-medium transition-all duration-150 cursor-pointer ${
-                activeTab === "billing" ? "bg-indigo-600 text-white font-semibold shadow-xs" : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              <Key size={15} />
-              <span>SaaS Settings (Billing)</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* User profile footer controls */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="bg-stone-105 p-4 rounded-2xl flex items-center justify-between text-xs mt-8">
             <div className="min-w-0">
-              <span className="text-slate-100 font-bold block truncate">{currentUser.name}</span>
-              <span className="text-[10px] text-slate-400 block truncate">{currentUser.email}</span>
+              <span className="block font-black text-stone-900 truncate">{currentUser.name}</span>
+              <span className="block text-[10px] text-stone-500 truncate">{currentUser.email}</span>
             </div>
             <button 
-              onClick={logoutUser}
-              className="text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 cursor-pointer"
-              title="Terminal Logout"
+              onClick={() => { setMobileMenuOpen(false); logoutUser(); }}
+              className="p-2 bg-red-50 text-red-650 rounded-xl"
             >
-              <LogOut size={15} />
+              <LogOut size={16} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP SIDEBAR NAVIGATION (With Glassmorphic styling) */}
+      <aside className="hidden md:flex w-64 bg-white/75 backdrop-blur-md border-r border-stone-200/50 text-stone-700 flex-col justify-between shrink-0 font-sans shadow-[4px_0_24px_rgba(40,40,40,0.015)] relative">
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-orange-100/15 blur-2xl pointer-events-none"></div>
+
+        <div className="relative z-10 flex-col h-full flex justify-between">
+          <div>
+            {/* Tenant top header */}
+            <div className="p-5 border-b border-stone-200/40 bg-white/20">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1 bg-white border border-stone-200 rounded-xl shadow-xs shrink-0 flex items-center justify-center">
+                  <img 
+                    src="https://i.imgur.com/FsP49VA.png" 
+                    alt="NRH Warehouse Management Logo" 
+                    className="h-10 w-auto object-contain" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xs font-black text-stone-900 tracking-wider truncate uppercase font-mono">
+                    NRH SYSTEMS
+                  </h1>
+                  <span className="text-[9px] bg-orange-100 text-orange-950 border border-orange-200/30 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-widest block w-fit mt-1">
+                    {organization.business_type}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Nav buttons scroll container */}
+            <nav className="p-4 space-y-1.5 text-xs max-h-[70vh] overflow-y-auto">
+              <span className="text-[9px] text-stone-400 uppercase tracking-widest block px-3 mb-1 font-extrabold select-none">Internal Operations</span>
+              
+              <button 
+                onClick={() => setActiveTab("overview")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "overview" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <TrendingUp size={14} />
+                <span>Dashboard Home</span>
+              </button>
+
+              <button 
+                id="tab-warehouses"
+                onClick={() => setActiveTab("warehouses")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "warehouses" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <WHIcon size={14} />
+                <span>Warehouses & Zones</span>
+              </button>
+
+              <button 
+                id="tab-products"
+                onClick={() => setActiveTab("products")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "products" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <Package size={14} />
+                <span>Active SKU Catalog</span>
+              </button>
+
+              <button 
+                id="tab-inventory"
+                onClick={() => setActiveTab("inventory")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "inventory" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <Database size={14} />
+                <span>Real-Time Stock levels</span>
+              </button>
+
+              <button 
+                id="tab-suppliers"
+                onClick={() => setActiveTab("suppliers")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "suppliers" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <Users size={14} />
+                <span>Procure Suppliers</span>
+              </button>
+
+              <span className="text-[9px] text-stone-400 uppercase tracking-widest block px-3 pt-3 mb-1 font-extrabold select-none">Logistics Pipeline</span>
+
+              <button 
+                id="tab-purchase"
+                onClick={() => setActiveTab("purchase")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "purchase" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <FileSpreadsheet size={14} />
+                <span>Inbound Orders (POs)</span>
+              </button>
+
+              <button 
+                id="tab-dispatch"
+                onClick={() => setActiveTab("dispatch")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "dispatch" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <ClipboardList size={14} />
+                <span>Outbound Dispatches</span>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab("movements")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "movements" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <History size={14} />
+                <span>Integrations Log</span>
+              </button>
+
+              <span className="text-[9px] text-stone-400 uppercase tracking-widest block px-3 pt-3 mb-1 font-extrabold select-none">Channels</span>
+
+              <button 
+                onClick={() => setActiveTab("store")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "store" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <ShoppingBag size={14} className={activeTab === "store" ? "text-white" : "text-orange-500"} />
+                <span className="flex-1">B2B Rep Storefront</span>
+                <span className="bg-orange-100 text-orange-950 px-1.5 py-0.5 rounded text-[8px] font-black uppercase">NEW</span>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab("profile")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "profile" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <UserIcon size={14} className={activeTab === "profile" ? "text-white" : "text-stone-400"} />
+                <span>Tenant Cloud Profile</span>
+              </button>
+
+              <button 
+                id="tab-billing"
+                onClick={() => setActiveTab("billing")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl w-full text-left font-semibold transition-all duration-155 cursor-pointer ${
+                  activeTab === "billing" ? "bg-orange-500 text-white shadow-md shadow-orange-600/10" : "hover:bg-stone-50 text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                <Key size={14} />
+                <span>SaaS Settings (Billing)</span>
+              </button>
+            </nav>
+          </div>
+
+          {/* User profile footer controls */}
+          <div className="p-4 border-t border-stone-100 bg-[#fbf9f4]/40 z-10">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="min-w-0">
+                <span className="text-stone-900 font-bold block truncate">{currentUser.name}</span>
+                <span className="text-[10px] text-stone-500 block truncate">{currentUser.email}</span>
+              </div>
+              <button 
+                onClick={logoutUser}
+                className="text-stone-400 hover:text-red-750 p-1.5 rounded-xl hover:bg-stone-100 cursor-pointer"
+                title="Terminal Logout"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Main content hub */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
         <div className="min-h-[70vh]">
           {activeTab === "overview" && (
             <Overview 
@@ -786,6 +1102,24 @@ export default function App() {
             />
           )}
 
+          {activeTab === "store" && (
+            <Store 
+              products={products}
+              inventory={inventory}
+              warehouses={warehouses}
+              onCreateDispatchOrder={handleCreateDispatchOrder}
+            />
+          )}
+
+          {activeTab === "profile" && (
+            <Profile 
+              currentUser={currentUser}
+              organization={organization}
+              themeColor={themeColor}
+              density={density}
+            />
+          )}
+
           {activeTab === "billing" && (
             <Billing 
               apiKeys={apiKeys}
@@ -795,6 +1129,10 @@ export default function App() {
               onRevokeKey={handleRevokeApiKey}
               onTriggerWebhook={handleTriggerWebhook}
               onRefresh={loadWorkspaceDetails}
+              themeColor={themeColor}
+              setThemeColor={setThemeColor}
+              density={density}
+              setDensity={setDensity}
             />
           )}
         </div>

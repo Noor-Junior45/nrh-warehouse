@@ -60,7 +60,7 @@ export default function Suppliers({ suppliers, onCreateSupplier, onDeleteSupplie
         <button 
           id="add-supplier-btn"
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 cursor-pointer transition-all active:translate-y-px"
+          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 cursor-pointer transition-all active:translate-y-px"
         >
           <Plus size={16} />
           <span>Add Supplier</span>
@@ -114,7 +114,7 @@ export default function Suppliers({ suppliers, onCreateSupplier, onDeleteSupplie
               </select>
             </div>
           </div>
-          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shadow-sm shadow-indigo-600/10">
+          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer shadow-sm shadow-amber-750/10">
             {loading ? "Adding..." : "Add Supplier Profile"}
           </button>
         </form>

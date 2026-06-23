@@ -92,7 +92,7 @@ export default function Movements({ movements, products, warehouses }: Movements
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                         m.movement_type === "inbound" ? "bg-emerald-50 text-emerald-600" :
                         m.movement_type === "outbound" ? "bg-rose-50 text-rose-600" :
-                        m.movement_type === "adjustment" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                        m.movement_type === "adjustment" ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-700"
                       }`}>
                         {m.movement_type === "inbound" ? <ArrowDownRight size={11} /> : m.movement_type === "outbound" ? <ArrowUpRight size={11} /> : null}
                         <span>{m.movement_type}</span>

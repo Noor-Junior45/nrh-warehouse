@@ -82,7 +82,7 @@ export default function Products({ products, onCreateProduct, onDeleteProduct }:
         <button 
           id="add-sku-btn"
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 hover:shadow-indigo-600/20 active:translate-y-px transition-all cursor-pointer self-start sm:self-auto"
+          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer self-start sm:self-auto"
         >
           <Plus size={16} />
           <span>Add SKU Product</span>
@@ -159,7 +159,7 @@ export default function Products({ products, onCreateProduct, onDeleteProduct }:
               <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://images.unsplash.com/... or leave blank" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
             </div>
           </div>
-          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shadow-sm">
+          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer shadow-sm">
             {loading ? "Creating SKU..." : "Save Product SKU"}
           </button>
         </form>

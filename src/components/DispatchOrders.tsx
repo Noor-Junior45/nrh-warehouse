@@ -151,7 +151,7 @@ export default function DispatchOrders({
             if (warehouses.length > 0) setWhId(warehouses[0].id);
             if (products.length > 0) setItems([{ product_id: products[0].id, quantity_requested: 5, unit_price: products[0].unit_price }]);
           }}
-          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 hover:shadow-indigo-600/25 active:translate-y-px transition-all cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/25 active:translate-y-px transition-all cursor-pointer"
         >
           <Plus size={16} />
           <span>Fulfill Shipment</span>
@@ -168,7 +168,7 @@ export default function DispatchOrders({
       {showCreate && (
         <form onSubmit={handleCreate} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 max-w-3xl">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-2">
-            <h3 className="text-xs font-bold text-indigo-400 bg-slate-950 px-3 py-1.5 rounded-md w-fit border border-slate-850 font-mono tracking-wider">CREATE DISPATCH ORDER</h3>
+            <h3 className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-md w-fit border border-amber-200/50 font-mono tracking-wider">CREATE DISPATCH ORDER</h3>
             <button type="button" onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600 text-xs">Cancel</button>
           </div>
 
@@ -235,10 +235,10 @@ export default function DispatchOrders({
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addItemRow} className="text-xs text-blue-600 font-bold hover:underline">+ Append sales dispatch line</button>
+            <button type="button" onClick={addItemRow} className="text-xs text-amber-800 font-bold hover:underline">+ Append sales dispatch line</button>
           </div>
 
-          <button disabled={loading} type="submit" className="w-full text-xs font-semibold py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shadow-sm shadow-indigo-600/10">
+          <button disabled={loading} type="submit" className="w-full text-xs font-semibold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer shadow-sm shadow-amber-700/10">
             {loading ? "INITIALIZING..." : "LOG OUTBOUND DISPATCH ORDER"}
           </button>
         </form>

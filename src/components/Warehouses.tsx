@@ -107,7 +107,7 @@ export default function Warehouses({
           <button 
             id="add-warehouse-btn"
             onClick={() => { setShowWhForm(true); setShowZoneForm(false); }}
-            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-600/10 hover:shadow-indigo-600/20 active:translate-y-px transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Add Warehouse</span>
@@ -178,7 +178,7 @@ export default function Warehouses({
               <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+919999999999" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
             </div>
           </div>
-          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer">
+          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer">
             {loading ? "Adding Warehouse..." : "Add Warehouse to Database"}
           </button>
         </form>
@@ -218,7 +218,7 @@ export default function Warehouses({
               <input type="number" value={zoneCapacity} onChange={e => setZoneCapacity(e.target.value)} className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
             </div>
           </div>
-          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer">
+          <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer">
             {loading ? "Adding Zone..." : "Add Zone Section"}
           </button>
         </form>
