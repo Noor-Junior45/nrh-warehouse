@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Catch-All Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'name'])
+        && data.keys().size() <= 6
+        && data.id is string
+        && data.email is string
+        && data.email.size() <= 200
+        && data.name is string
+        && data.name.size() <= 100;
+    }
+
+    function isValidOrganization(data) {
+      return data.keys().hasAll(['id', 'name', 'business_type', 'owner_id', 'subscription_plan', 'subscription_status'])
+        && data.keys().size() <= 12
+        && data.id is string
+        && data.name is string
+        && data.name.size() <= 200
+        && data.owner_id is string
+        && data.business_type in ['retail', 'manufacturing', 'ecommerce', 'pharmacy', 'cold_storage'];
+    }
+
+    function isValidWarehouse(data) {
+      return data.keys().hasAll(['id', 'organization_id', 'name'])
+        && data.keys().size() <= 15
+        && data.id is string
+        && data.organization_id is string
+        && data.name is string
+        && data.name.size() <= 200;
+    }
+
+    function isValidZone(data) {
+      return data.keys().hasAll(['id', 'warehouse_id', 'name', 'zone_type'])
+        && data.keys().size() <= 8
+        && data.id is string
+        && data.warehouse_id is string
+        && data.name is string
+        && data.zone_type in ['receiving', 'storage', 'dispatch', 'cold', 'hazmat'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'organization_id', 'sku', 'name', 'unit_price'])
+        && data.keys().size() <= 16
+        && data.id is string
+        && data.organization_id is string
+        && data.sku is string
+        && data.name is string
+        && data.unit_price is number;
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll(['id', 'organization_id', 'name'])
+        && data.keys().size() <= 12
+        && data.id is string
+        && data.organization_id is string
+        && data.name is string;
+    }
+
+    function isValidInventory(data) {
+      return data.keys().hasAll(['id', 'warehouse_id', 'product_id', 'quantity_available'])
+        && data.keys().size() <= 12
+        && data.id is string
+        && data.warehouse_id is string
+        && data.product_id is string
+        && data.quantity_available is number;
+    }
+
+    // Collection Rules
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.email == request.auth.token.email;
+      allow create, update: if isSignedIn() && isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidOrganization(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.owner_id == request.auth.uid;
+    }
+
+    match /warehouses/{whId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidWarehouse(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidZone(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /products/{prodId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidProduct(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /suppliers/{supId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidSupplier(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    match /inventory/{invId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidInventory(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+  }
+} rules_version = '2';

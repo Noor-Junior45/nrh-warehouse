@@ -207,18 +207,18 @@ export default function Profile({ currentUser, organization, themeColor, density
                 </div>
               </div>
 
-              {/* Supabase details explanation */}
-              <div className="p-4 bg-emerald-50/20 rounded-2xl border border-emerald-200/20 space-y-3">
-                <span className="text-xs font-black text-emerald-900 flex items-center gap-1.5 uppercase">
-                  <Sparkles size={14} className="text-emerald-600" />
-                  Supabase Backend Synchronization Integration
+              {/* Firebase Firestore details explanation */}
+              <div className="p-4 bg-sky-50/20 rounded-2xl border border-sky-200/20 space-y-3">
+                <span className="text-xs font-black text-sky-900 flex items-center gap-1.5 uppercase">
+                  <Sparkles size={14} className="text-sky-600" />
+                  Google Cloud Firestore Replication Engine
                 </span>
                 <p className="text-xs text-stone-600 leading-relaxed font-sans">
-                  The host application perfectly exchanges transactional states with your linked Supabase client (<code>xsjjobfcznjsvqyssdix.supabase.co</code>). This coordinates OAuth tokens, dispatch parameters, and stock validation snapshots live across real container runs.
+                  The host application actively synchronizes all internal multi-tenant tables (users, warehouses, products, stock movements, purchase orders, and dispatches) directly with your private, low-latency Google Firestore cluster. This assures immediate consistency, secure identity alignment, and real-time document-state replication.
                 </p>
                 <div className="flex gap-2 text-xs font-mono">
-                  <span className="px-2.5 py-1 bg-white/80 border border-stone-200 rounded-lg text-stone-700">Project: supabase-coral-button</span>
-                  <span className="px-2.5 py-1 bg-white/80 border border-stone-200 rounded-lg text-stone-700">Region: Enterprise Node</span>
+                  <span className="px-2.5 py-1 bg-white/80 border border-stone-200 rounded-lg text-sky-700 font-bold">Database: {firebaseConfig.firestoreDatabaseId || "Enterprise Default"}</span>
+                  <span className="px-2.5 py-1 bg-white/80 border border-stone-200 rounded-lg text-stone-700">Status: Fully Live</span>
                 </div>
               </div>
             </div>

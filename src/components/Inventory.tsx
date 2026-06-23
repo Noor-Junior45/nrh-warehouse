@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Inventory as InvType, Warehouse as WHType, Zone, Product } from "../types";
-import { Search, Plus, Filter, RefreshCw, AlertCircle, Calendar, ArrowRight } from "lucide-react";
+import { Search, Plus, Filter, RefreshCw, AlertCircle, Calendar, ArrowRight, Camera } from "lucide-react";
+import SkuScanner from "./SkuScanner";
 
 interface InventoryProps {
   inventory: InvType[];
@@ -20,6 +21,7 @@ export default function Inventory({
   onRefresh
 }: InventoryProps) {
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -83,7 +85,16 @@ export default function Inventory({
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Real-Time Stock levels</h2>
           <p className="text-sm text-slate-500 mt-0.5">Lookup physical locations, batches, and record instant adjustments.</p>
         </div>
-        <div className="flex gap-2 self-start sm:self-auto">
+        <div className="flex gap-2 self-start sm:self-auto flex-wrap">
+          <button 
+            type="button"
+            onClick={() => setShowScanner(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg shadow-sm active:translate-y-px transition-all cursor-pointer"
+          >
+            <Camera size={15} />
+            <span>Barcode Camera Scanner</span>
+          </button>
+
           <button 
             onClick={() => {
               if (warehouses.length > 0) setWhId(warehouses[0].id);
@@ -91,7 +102,7 @@ export default function Inventory({
               setShowAdjustModal(true);
             }}
             id="adjust-stock-btn"
-            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-750 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg shadow-sm shadow-amber-700/10 hover:shadow-amber-700/20 active:translate-y-px transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Manual Adjust Stock</span>
@@ -294,6 +305,16 @@ export default function Inventory({
           </table>
         </div>
       </div>
+
+      {showScanner && (
+        <SkuScanner 
+          products={products}
+          onScanResult={(resSku) => {
+            setSearch(resSku);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }

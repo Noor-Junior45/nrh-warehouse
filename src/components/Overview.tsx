@@ -28,17 +28,17 @@ export default function Overview({
   return (
     <div className="space-y-6">
       {/* Dynamic welcome header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[#fcfcf9] p-6 rounded-xl border border-stone-200 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[#fcfcf9] p-6 rounded-xl border border-stone-200">
         <div>
-          <h2 className="text-xl font-bold text-stone-900 tracking-tight">NRH Warehouse Operations Panel</h2>
-          <p className="text-sm text-stone-505 mt-1">Real-time status overview of storage, fulfillment, and logistics streams.</p>
+          <h2 className="text-xl font-bold text-stone-900 tracking-tight">Operations Dashboard</h2>
+          <p className="text-sm text-stone-500 mt-1">Real-time status overview of available stock, catalog, and outbound products.</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="flex h-3 w-3 relative">
+          <span className="flex h-2.5 w-2.5 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-          <span className="text-xs font-mono font-medium text-stone-600 bg-stone-100 px-2.5 py-1 rounded-md border border-stone-200/40">IST Connection Secure</span>
+          <span className="text-[11px] font-mono font-medium text-stone-600 bg-stone-100 px-2 py-1 rounded-md border border-stone-200/40">Active Syncing</span>
         </div>
       </div>
 
@@ -142,7 +142,7 @@ export default function Overview({
                     ></div>
                   </div>
                   <div className="flex items-center justify-between mt-1.5 text-[10px] text-stone-500 font-medium">
-                    <span>Manager: {wh.manager_name}</span>
+                    <span>Active Stock Tracking Area</span>
                     <span>{capacityUsagePercent}% Filled</span>
                   </div>
                 </div>
@@ -154,36 +154,29 @@ export default function Overview({
           </div>
         </div>
 
-        {/* Diagnostic Audit Trails */}
+        {/* Real Business status tracking list */}
         <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs">
-          <h3 className="text-sm font-semibold text-stone-800 uppercase tracking-widest mb-4">WMS System Logs</h3>
-          <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-stone-800 uppercase tracking-widest mb-4">Stock Flow Status</h3>
+          <div className="space-y-4">
             <div className="flex items-start gap-2 text-xs border-b border-stone-100 pb-2.5">
               <div className="mt-0.5 text-emerald-600"><ArrowUpRight size={14} /></div>
               <div>
-                <p className="text-stone-800 font-medium">Relational JSON Memory Init</p>
-                <p className="text-[10px] text-stone-450 font-mono">2026-06-23T00:00:00Z</p>
+                <p className="text-stone-800 font-bold">Purchases & Inbound</p>
+                <p className="text-[10px] text-stone-500">Auto-calculated catalog items ready for procurements.</p>
               </div>
             </div>
             <div className="flex items-start gap-2 text-xs border-b border-stone-100 pb-2.5">
               <div className="mt-0.5 text-amber-700"><TrendingUp size={14} /></div>
               <div>
-                <p className="text-stone-800 font-medium">Seed Inventory Complete</p>
-                <p className="text-[10px] text-stone-450 font-mono">12 SKU batches established</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 text-xs border-b border-stone-100 pb-2.5">
-              <div className="mt-0.5 text-stone-605"><History size={14} /></div>
-              <div>
-                <p className="text-stone-800 font-medium">M2M Key Dispatcher Available</p>
-                <p className="text-[10px] text-stone-505 font-mono">Listening on scope billing:read</p>
+                <p className="text-stone-800 font-bold">Real-time Safety Alert</p>
+                <p className="text-[10px] text-stone-505">Low stock values now trigger in settings alert panel.</p>
               </div>
             </div>
             <div className="flex items-start gap-2 text-xs">
-              <div className="mt-0.5 text-stone-500"><TrendingUp size={14} /></div>
+              <div className="mt-0.5 text-stone-600"><History size={14} /></div>
               <div>
-                <p className="text-stone-800 font-medium">Ready for Outbound Orders</p>
-                <p className="text-[10px] text-stone-505 font-mono">Ready on port :3000</p>
+                <p className="text-stone-800 font-bold">Customer Storefront Sales</p>
+                <p className="text-[10px] text-stone-550">Dispatch outbounds connected to direct customer order flows.</p>
               </div>
             </div>
           </div>

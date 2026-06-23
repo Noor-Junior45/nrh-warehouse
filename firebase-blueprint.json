@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the multi-tenant warehouse systems",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "description": "User login or contact email" },
+        "name": { "type": "string", "description": "User full name" },
+        "created_at": { "type": "string", "description": "Creation timestamp in standard format" }
+      },
+      "required": ["id", "email", "name"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Multi-tenant business organization",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "business_type": { "type": "string", "enum": ["retail", "manufacturing", "ecommerce", "pharmacy", "cold_storage"] },
+        "owner_id": { "type": "string" },
+        "subscription_plan": { "type": "string" },
+        "subscription_status": { "type": "string" },
+        "billing_email": { "type": "string" },
+        "razorpay_customer_id": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "name", "business_type", "owner_id", "subscription_plan", "subscription_status"]
+    },
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "Warehouse details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organization_id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "pincode": { "type": "string" },
+        "country": { "type": "string" },
+        "total_capacity": { "type": "number" },
+        "capacity_unit": { "type": "string" },
+        "manager_name": { "type": "string" },
+        "manager_phone": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "organization_id", "name"]
+    },
+    "Zone": {
+      "title": "Zone",
+      "description": "Storage zone inside a warehouse",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "warehouse_id": { "type": "string" },
+        "name": { "type": "string" },
+        "zone_type": { "type": "string", "enum": ["receiving", "storage", "dispatch", "cold", "hazmat"] },
+        "capacity": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "warehouse_id", "name", "zone_type"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "SKU catalog product item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organization_id": { "type": "string" },
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "unit_of_measure": { "type": "string" },
+        "unit_price": { "type": "number" },
+        "reorder_level": { "type": "number" },
+        "hsn_code": { "type": "string" },
+        "gst_rate": { "type": "number" },
+        "image_url": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "organization_id", "sku", "name", "unit_price"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Supplier information for purchase orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organization_id": { "type": "string" },
+        "name": { "type": "string" },
+        "contact_person": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "gst_number": { "type": "string" },
+        "payment_terms": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "organization_id", "name"]
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "Real-time stock item levels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "warehouse_id": { "type": "string" },
+        "zone_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "quantity_available": { "type": "number" },
+        "quantity_reserved": { "type": "number" },
+        "batch_number": { "type": "string" },
+        "expiry_date": { "type": "string" },
+        "location_code": { "type": "string" },
+        "last_updated": { "type": "string" }
+      },
+      "required": ["id", "warehouse_id", "product_id", "quantity_available"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile records"
+    },
+    "organizations/{organizationId}": {
+      "schema": "Organization",
+      "description": "Organization details"
+    },
+    "warehouses/{warehouseId}": {
+      "schema": "Warehouse",
+      "description": "Warehouse entries"
+    },
+    "zones/{zoneId}": {
+      "schema": "Zone",
+      "description": "Zoning definitions inside warehouses"
+    },
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Global active SKU catalog"
+    },
+    "suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Sourcing procurement suppliers list"
+    },
+    "inventory/{inventoryId}": {
+      "schema": "Inventory",
+      "description": "Active quantity balances for SKU/locations"
+    }
+  }
+}

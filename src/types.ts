@@ -2,6 +2,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  photo_url?: string;
 }
 
 export interface Organization {
@@ -57,6 +58,8 @@ export interface Product {
   image_url: string;
   is_active: boolean;
   created_at: string;
+  expiry_date?: string | null;
+  custom_attributes?: Record<string, any> | null;
 }
 
 export interface Supplier {

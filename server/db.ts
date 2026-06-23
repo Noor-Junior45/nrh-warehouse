@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 // Ensure data folder exists
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -10,6 +12,20 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const DB_FILE = path.join(DATA_DIR, "wms_database.json");
 
+// Initialize Firebase client on server-side using local config
+let firestoreDb: any = null;
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const app = initializeApp(firebaseConfig, "server-app");
+    firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    console.log("Firebase Firestore successfully initialized on backend server");
+  }
+} catch (err) {
+  console.error("Failed to initialize Firebase Firestore on backend:", err);
+}
+
 // --- TS INTERFACES ---
 
 export interface AuthUser {
@@ -18,6 +34,7 @@ export interface AuthUser {
   password_hash: string;
   name: string;
   created_at: string;
+  photo_url?: string;
 }
 
 export interface Organization {
@@ -73,6 +90,8 @@ export interface Product {
   image_url: string;
   is_active: boolean;
   created_at: string;
+  expiry_date?: string | null;
+  custom_attributes?: Record<string, any> | null;
 }
 
 export interface Supplier {
@@ -211,9 +230,54 @@ const emptyDatabase: DatabaseSchema = {
 
 class WMSDatabase {
   private cache: DatabaseSchema = emptyDatabase;
+  private caches: Record<string, DatabaseSchema> = {};
 
   constructor() {
     this.load();
+    this.syncWithFirestore();
+  }
+
+  // Retrieve or initialize a tenant-specific isolated database cache
+  public getTenantCache(orgId: string): DatabaseSchema {
+    if (!orgId) {
+      return this.cache; // Fallback to global cache
+    }
+    
+    if (!this.caches[orgId]) {
+      const tenantFile = path.join(DATA_DIR, `wms_database_${orgId}.json`);
+      if (fs.existsSync(tenantFile)) {
+        try {
+          this.caches[orgId] = JSON.parse(fs.readFileSync(tenantFile, "utf-8"));
+          console.log(`Loaded tenant WMS partition JSON for Org: ${orgId}`);
+        } catch (e) {
+          console.error(`Failed to parse tenant database partition ${orgId}, creating clean:`, e);
+          this.caches[orgId] = this.createNewTenantSchema(orgId);
+        }
+      } else {
+        this.caches[orgId] = this.createNewTenantSchema(orgId);
+        // Start background Firestore sync for this user storage
+        this.syncTenantFromFirestore(orgId);
+      }
+    }
+    return this.caches[orgId];
+  }
+
+  private createNewTenantSchema(orgId: string): DatabaseSchema {
+    return {
+      users: [...this.cache.users],
+      organizations: this.cache.organizations.filter(o => o.id === orgId),
+      warehouses: [],
+      zones: [],
+      products: [],
+      suppliers: [],
+      inventory: [],
+      stock_movements: [],
+      purchase_orders: [],
+      purchase_order_items: [],
+      dispatch_orders: [],
+      dispatch_order_items: [],
+      api_keys: []
+    };
   }
 
   // Load database from file with seeding
@@ -234,10 +298,100 @@ class WMSDatabase {
     }
   }
 
-  // Save changes to disk
+  // Dynamic user specific Firestore load & sync engine
+  public async syncTenantFromFirestore(orgId: string) {
+    if (!firestoreDb || !orgId) return;
+    try {
+      console.log(`Initiating Cloud Firestore state sync for tenant ID: ${orgId}...`);
+      const docRef = doc(firestoreDb, "wms_tenants", orgId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const remoteData = docSnap.data() as DatabaseSchema;
+        if (remoteData) {
+          this.caches[orgId] = {
+            ...this.createNewTenantSchema(orgId),
+            ...remoteData
+          };
+          this.saveTenant(orgId);
+          console.log(`Successfully fetched and synced user tenant state '${orgId}' from Google Cloud Firestore.`);
+        }
+      } else {
+        // Publish default baseline
+        const tenantData = this.getTenantCache(orgId);
+        await setDoc(docRef, tenantData);
+        console.log(`Published new tenant baseline for Org ID: ${orgId} to Cloud Firestore.`);
+      }
+    } catch (e) {
+      console.error(`Failed cloud-sync database replication for tenant ${orgId}:`, e);
+    }
+  }
+
+  // Safe background Firestore load/synchronizer (Global Users table)
+  public async syncWithFirestore() {
+    if (!firestoreDb) return;
+    try {
+      console.log("Initiating Cloud Firestore main registry synchronization...");
+      const docRef = doc(firestoreDb, "wms_data", "current_state");
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const remoteData = docSnap.data() as DatabaseSchema;
+        if (remoteData && Array.isArray(remoteData.users) && Array.isArray(remoteData.organizations)) {
+          this.cache = { ...emptyDatabase, ...remoteData };
+          fs.writeFileSync(DB_FILE, JSON.stringify(this.cache, null, 2), "utf-8");
+          console.log("Successfully restored registry cache from central Cloud Firestore.");
+        }
+      } else {
+        await setDoc(docRef, this.cache);
+        console.log("Published master baseline to central Cloud Firestore.");
+      }
+    } catch (e) {
+      console.error("Failed cloud-sync register with central Firestore:", e);
+    }
+  }
+
+  // Save changes for a secure tenant-specific partition to disk & Cloud Firestore
+  public saveTenant(orgId: string) {
+    if (!orgId) {
+      this.save();
+      return;
+    }
+    try {
+      const tenantFile = path.join(DATA_DIR, `wms_database_${orgId}.json`);
+      const tenantData = this.getTenantCache(orgId);
+      fs.writeFileSync(tenantFile, JSON.stringify(tenantData, null, 2), "utf-8");
+
+      // Dynamic sync with global users list
+      this.cache.users = Array.from(new Set([...this.cache.users, ...tenantData.users]));
+      tenantData.organizations.forEach(o => {
+        if (!this.cache.organizations.some(x => x.id === o.id)) {
+          this.cache.organizations.push(o);
+        }
+      });
+      fs.writeFileSync(DB_FILE, JSON.stringify(this.cache, null, 2), "utf-8");
+      
+      // Asynchronously upload state replica to Cloud Firestore under unique tenant ID
+      if (firestoreDb) {
+        const docRef = doc(firestoreDb, "wms_tenants", orgId);
+        setDoc(docRef, tenantData).catch(err => {
+          console.error(`Error writing asynchronous snapshot to Cloud Firestore for tenant ${orgId}:`, err);
+        });
+      }
+    } catch (e) {
+      console.error(`Failed to write tenant database file for org ${orgId}:`, e);
+    }
+  }
+
+  // Save changes to disk and replicate to Firebase Firestore (Global Registry fallback)
   public save() {
     try {
       fs.writeFileSync(DB_FILE, JSON.stringify(this.cache, null, 2), "utf-8");
+      
+      if (firestoreDb) {
+        const docRef = doc(firestoreDb, "wms_data", "current_state");
+        setDoc(docRef, this.cache).catch(err => {
+          console.error("Error writing asynchronous snapshot to Cloud Firestore:", err);
+        });
+      }
     } catch (e) {
       console.error("Failed to write database file", e);
     }
@@ -600,147 +754,220 @@ class WMSDatabase {
 
   // Warehouses
   public getWarehouses(orgId: string) { 
-    return this.cache.warehouses.filter(w => w.organization_id === orgId); 
+    return this.getTenantCache(orgId).warehouses; 
   }
-  public getWarehouseById(id: string) { 
+  public getWarehouseById(id: string, orgId?: string) { 
+    if (orgId) {
+      return this.getTenantCache(orgId).warehouses.find(w => w.id === id);
+    }
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].warehouses.find(w => w.id === id);
+      if (found) return found;
+    }
     return this.cache.warehouses.find(w => w.id === id); 
   }
   public addWarehouse(w: Warehouse) { 
-    this.cache.warehouses.push(w); 
-    this.save(); 
+    const tenant = this.getTenantCache(w.organization_id);
+    tenant.warehouses.push(w); 
+    this.saveTenant(w.organization_id); 
     return w;
   }
   public updateWarehouse(id: string, updates: Partial<Warehouse>) {
     const w = this.getWarehouseById(id);
     if (w) {
       Object.assign(w, updates);
-      this.save();
+      this.saveTenant(w.organization_id);
     }
     return w;
   }
   public deleteWarehouse(id: string) {
-    this.cache.warehouses = this.cache.warehouses.filter(w => w.id !== id);
-    // Cascade delete zones and inventory
-    this.cache.zones = this.cache.zones.filter(z => z.warehouse_id !== id);
-    this.cache.inventory = this.cache.inventory.filter(i => i.warehouse_id !== id);
-    this.save();
+    const w = this.getWarehouseById(id);
+    if (w) {
+      const orgId = w.organization_id;
+      const tenant = this.getTenantCache(orgId);
+      tenant.warehouses = tenant.warehouses.filter(x => x.id !== id);
+      tenant.zones = tenant.zones.filter(z => z.warehouse_id !== id);
+      tenant.inventory = tenant.inventory.filter(i => i.warehouse_id !== id);
+      this.saveTenant(orgId);
+    }
     return true;
   }
 
   // Zones
   public getZonesByWarehouse(whId: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].zones.filter(z => z.warehouse_id === whId);
+      if (found.length > 0) return found;
+    }
     return this.cache.zones.filter(z => z.warehouse_id === whId);
   }
   public getZonesByOrg(orgId: string) {
-    const whs = this.getWarehouses(orgId).map(w => w.id);
-    return this.cache.zones.filter(z => whs.includes(z.warehouse_id));
+    const tenant = this.getTenantCache(orgId);
+    const whs = tenant.warehouses.map(w => w.id);
+    return tenant.zones.filter(z => whs.includes(z.warehouse_id));
   }
   public getZoneById(id: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].zones.find(z => z.id === id);
+      if (found) return found;
+    }
     return this.cache.zones.find(z => z.id === id);
   }
   public addZone(z: Zone) {
-    this.cache.zones.push(z);
-    this.save();
+    const wh = this.getWarehouseById(z.warehouse_id);
+    if (wh) {
+      const tenant = this.getTenantCache(wh.organization_id);
+      tenant.zones.push(z);
+      this.saveTenant(wh.organization_id);
+    } else {
+      this.cache.zones.push(z);
+      this.save();
+    }
     return z;
   }
   public updateZone(id: string, updates: Partial<Zone>) {
     const z = this.getZoneById(id);
     if (z) {
       Object.assign(z, updates);
-      this.save();
+      const wh = this.getWarehouseById(z.warehouse_id);
+      if (wh) {
+        this.saveTenant(wh.organization_id);
+      } else {
+        this.save();
+      }
     }
     return z;
   }
   public deleteZone(id: string) {
-    this.cache.zones = this.cache.zones.filter(z => z.id !== id);
-    // Release inventory zone_id references
-    this.cache.inventory.forEach(i => {
-      if (i.zone_id === id) {
-        i.zone_id = ""; // Unassigned zone
+    const z = this.getZoneById(id);
+    if (z) {
+      const wh = this.getWarehouseById(z.warehouse_id);
+      const orgId = wh ? wh.organization_id : "";
+      const tenant = this.getTenantCache(orgId);
+      tenant.zones = tenant.zones.filter(x => x.id !== id);
+      tenant.inventory.forEach(i => {
+        if (i.zone_id === id) {
+          i.zone_id = "";
+        }
+      });
+      if (orgId) {
+        this.saveTenant(orgId);
+      } else {
+        this.save();
       }
-    });
-    this.save();
+    }
     return true;
   }
 
   // Products
   public getProducts(orgId: string) {
-    return this.cache.products.filter(p => p.organization_id === orgId);
+    return this.getTenantCache(orgId).products;
   }
   public getProductById(id: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].products.find(p => p.id === id);
+      if (found) return found;
+    }
     return this.cache.products.find(p => p.id === id);
   }
   public getProductBySku(orgId: string, sku: string) {
-    return this.cache.products.find(p => p.organization_id === orgId && p.sku.toLowerCase() === sku.toLowerCase());
+    return this.getTenantCache(orgId).products.find(p => p.sku.toLowerCase() === sku.toLowerCase());
   }
   public addProduct(p: Product) {
-    // Unique combination check (sku + orgId)
-    const exists = this.getProductBySku(p.organization_id, p.sku);
+    const tenant = this.getTenantCache(p.organization_id);
+    const exists = tenant.products.find(x => x.sku.toLowerCase() === p.sku.toLowerCase());
     if (exists) throw new Error(`Product SKU '${p.sku}' already exists in your organization`);
-    this.cache.products.push(p);
-    this.save();
+    tenant.products.push(p);
+    this.saveTenant(p.organization_id);
     return p;
   }
   public updateProduct(id: string, updates: Partial<Product>) {
     const p = this.getProductById(id);
     if (p) {
-      if (updates.sku && updates.sku !== p.sku) {
-        const exists = this.getProductBySku(p.organization_id, updates.sku);
+      const tenant = this.getTenantCache(p.organization_id);
+      if (updates.sku && updates.sku.toLowerCase() !== p.sku.toLowerCase()) {
+        const exists = tenant.products.find(x => x.sku.toLowerCase() === updates.sku?.toLowerCase());
         if (exists) throw new Error(`Product SKU '${updates.sku}' already exists in your organization`);
       }
       Object.assign(p, updates);
-      this.save();
+      this.saveTenant(p.organization_id);
     }
     return p;
   }
   public deleteProduct(id: string) {
-    this.cache.products = this.cache.products.filter(p => p.id !== id);
-    // Cascade delete inventory records of this product
-    this.cache.inventory = this.cache.inventory.filter(i => i.product_id !== id);
-    this.save();
+    const p = this.getProductById(id);
+    if (p) {
+      const orgId = p.organization_id;
+      const tenant = this.getTenantCache(orgId);
+      tenant.products = tenant.products.filter(x => x.id !== id);
+      tenant.inventory = tenant.inventory.filter(i => i.product_id !== id);
+      this.saveTenant(orgId);
+    }
     return true;
   }
 
   // Suppliers
   public getSuppliers(orgId: string) {
-    return this.cache.suppliers.filter(s => s.organization_id === orgId);
+    return this.getTenantCache(orgId).suppliers;
   }
   public getSupplierById(id: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].suppliers.find(s => s.id === id);
+      if (found) return found;
+    }
     return this.cache.suppliers.find(s => s.id === id);
   }
   public addSupplier(s: Supplier) {
-    this.cache.suppliers.push(s);
-    this.save();
+    const tenant = this.getTenantCache(s.organization_id);
+    tenant.suppliers.push(s);
+    this.saveTenant(s.organization_id);
     return s;
   }
   public updateSupplier(id: string, updates: Partial<Supplier>) {
     const s = this.getSupplierById(id);
     if (s) {
       Object.assign(s, updates);
-      this.save();
+      this.saveTenant(s.organization_id);
     }
     return s;
   }
   public deleteSupplier(id: string) {
-    this.cache.suppliers = this.cache.suppliers.filter(s => s.id !== id);
-    this.save();
+    const s = this.getSupplierById(id);
+    if (s) {
+      const orgId = s.organization_id;
+      const tenant = this.getTenantCache(orgId);
+      tenant.suppliers = tenant.suppliers.filter(x => x.id !== id);
+      this.saveTenant(orgId);
+    }
     return true;
   }
 
   // Inventory
   public getInventoryByWarehouse(whId: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].inventory.filter(i => i.warehouse_id === whId);
+      if (found.length > 0) return found;
+    }
     return this.cache.inventory.filter(i => i.warehouse_id === whId);
   }
   public getInventoryByOrg(orgId: string) {
-    const whs = this.getWarehouses(orgId).map(w => w.id);
-    return this.cache.inventory.filter(i => whs.includes(i.warehouse_id));
+    const tenant = this.getTenantCache(orgId);
+    const whs = tenant.warehouses.map(w => w.id);
+    return tenant.inventory.filter(i => whs.includes(i.warehouse_id));
   }
   public getInventoryById(id: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].inventory.find(i => i.id === id);
+      if (found) return found;
+    }
     return this.cache.inventory.find(i => i.id === id);
   }
   public addInventoryRecord(i: Inventory) {
-    // Unique constraint: warehouse_id + product_id + batch_number
-    const duplicate = this.cache.inventory.find(
+    const wh = this.getWarehouseById(i.warehouse_id);
+    const orgId = wh ? wh.organization_id : "";
+    const tenant = this.getTenantCache(orgId);
+    
+    const duplicate = tenant.inventory.find(
       x => x.warehouse_id === i.warehouse_id &&
            x.product_id === i.product_id &&
            x.batch_number.toLowerCase() === i.batch_number.toLowerCase()
@@ -749,11 +976,13 @@ class WMSDatabase {
       duplicate.quantity_available += i.quantity_available;
       duplicate.quantity_reserved += i.quantity_reserved;
       duplicate.last_updated = new Date().toISOString();
-      this.save();
+      if (orgId) this.saveTenant(orgId);
+      else this.save();
       return duplicate;
     }
-    this.cache.inventory.push(i);
-    this.save();
+    tenant.inventory.push(i);
+    if (orgId) this.saveTenant(orgId);
+    else this.save();
     return i;
   }
   public updateInventoryRecord(id: string, updates: Partial<Inventory>) {
@@ -761,7 +990,12 @@ class WMSDatabase {
     if (i) {
       Object.assign(i, updates);
       i.last_updated = new Date().toISOString();
-      this.save();
+      const wh = this.getWarehouseById(i.warehouse_id);
+      if (wh) {
+        this.saveTenant(wh.organization_id);
+      } else {
+        this.save();
+      }
     }
     return i;
   }
@@ -781,15 +1015,17 @@ class WMSDatabase {
   }) {
     const { orgId, warehouseId, zoneId, productId, quantityChange, batchNumber, expiryDate, locationCode, notes, userId } = params;
 
+    const tenant = this.getTenantCache(orgId);
+
     // Verify product and warehouse belong to organization
-    const wh = this.getWarehouseById(warehouseId);
+    const wh = this.getWarehouseById(warehouseId, orgId);
     if (!wh || wh.organization_id !== orgId) throw new Error("Invalid Warehouse selected");
     
     const prod = this.getProductById(productId);
     if (!prod || prod.organization_id !== orgId) throw new Error("Invalid Product selected");
 
     // Retrieve or create inventory record
-    let records = this.cache.inventory.find(
+    let records = tenant.inventory.find(
       i => i.warehouse_id === warehouseId &&
            i.product_id === productId &&
            i.batch_number === batchNumber
@@ -821,7 +1057,7 @@ class WMSDatabase {
         location_code: locationCode,
         last_updated: new Date().toISOString()
       };
-      this.cache.inventory.push(records);
+      tenant.inventory.push(records);
     }
 
     // Log Stock Movement immediately (Audit Trail)
@@ -838,39 +1074,54 @@ class WMSDatabase {
       performed_by: userId,
       created_at: new Date().toISOString()
     };
-    this.cache.stock_movements.push(movement);
-    this.save();
+    tenant.stock_movements.push(movement);
+    this.saveTenant(orgId);
 
     return { records, movement };
   }
 
   // Stock Movements Audit view
   public getStockMovements(orgId: string) {
-    return this.cache.stock_movements.filter(m => m.organization_id === orgId);
+    return this.getTenantCache(orgId).stock_movements;
   }
   public addStockMovement(m: StockMovement) {
-    this.cache.stock_movements.push(m);
-    this.save();
+    const tenant = this.getTenantCache(m.organization_id);
+    tenant.stock_movements.push(m);
+    this.saveTenant(m.organization_id);
     return m;
   }
 
   // Purchase Orders
   public getPurchaseOrders(orgId: string) {
-    return this.cache.purchase_orders.filter(po => po.organization_id === orgId);
+    return this.getTenantCache(orgId).purchase_orders;
   }
-  public getPurchaseOrderById(id: string) {
+  public getPurchaseOrderById(id: string, orgId?: string) {
+    if (orgId) {
+      return this.getTenantCache(orgId).purchase_orders.find(po => po.id === id);
+    }
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].purchase_orders.find(po => po.id === id);
+      if (found) return found;
+    }
     return this.cache.purchase_orders.find(po => po.id === id);
   }
   public getPurchaseOrderItems(poId: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].purchase_order_items.filter(item => item.purchase_order_id === poId);
+      if (found.length > 0) return found;
+    }
     return this.cache.purchase_order_items.filter(item => item.purchase_order_id === poId);
   }
   public addPurchaseOrder(po: PurchaseOrder, items: Array<Omit<PurchaseOrderItem, "id" | "purchase_order_id">>) {
+    const orgId = po.organization_id;
+    const tenant = this.getTenantCache(orgId);
+
     // Auto-generate PO number
     if (!po.po_number) {
       po.po_number = this.generatePONumber();
     }
     
-    this.cache.purchase_orders.push(po);
+    tenant.purchase_orders.push(po);
     
     const formattedItems = items.map(it => {
       const formatted: PurchaseOrderItem = {
@@ -881,11 +1132,11 @@ class WMSDatabase {
         quantity_received: it.quantity_received || 0,
         unit_price: it.unit_price
       };
-      this.cache.purchase_order_items.push(formatted);
+      tenant.purchase_order_items.push(formatted);
       return formatted;
     });
 
-    this.save();
+    this.saveTenant(orgId);
     return { purchaseOrder: po, items: formattedItems };
   }
 
@@ -905,15 +1156,16 @@ class WMSDatabase {
     userId: string;
   }) {
     const { orgId, poId, receivingWarehouseId, receivingZoneId, itemsReceived, userId } = params;
+    const tenant = this.getTenantCache(orgId);
 
-    const po = this.getPurchaseOrderById(poId);
+    const po = this.getPurchaseOrderById(poId, orgId);
     if (!po || po.organization_id !== orgId) throw new Error("Purchase Order not found");
     if (po.status === "received" || po.status === "cancelled") {
       throw new Error(`This Purchase Order is already in status '${po.status}'`);
     }
 
     // Verify warehouse
-    const wh = this.getWarehouseById(receivingWarehouseId);
+    const wh = this.getWarehouseById(receivingWarehouseId, orgId);
     if (!wh || wh.organization_id !== orgId) throw new Error("Invalid receiving warehouse");
 
     // Fetch original items
@@ -932,7 +1184,7 @@ class WMSDatabase {
       matchedPOItem.quantity_received = (matchedPOItem.quantity_received || 0) + rx.quantity_received;
 
       // Add actual inventory record
-      let inv = this.cache.inventory.find(
+      let inv = tenant.inventory.find(
         i => i.warehouse_id === receivingWarehouseId &&
              i.product_id === rx.product_id &&
              i.batch_number === rx.batch_number
@@ -957,7 +1209,7 @@ class WMSDatabase {
           location_code: rx.location_code || "GEN-01",
           last_updated: new Date().toISOString()
         };
-        this.cache.inventory.push(inv);
+        tenant.inventory.push(inv);
       }
 
       // Record detailed Audit
@@ -974,12 +1226,11 @@ class WMSDatabase {
         performed_by: userId,
         created_at: new Date().toISOString()
       };
-      this.cache.stock_movements.push(movement);
+      tenant.stock_movements.push(movement);
       movementsCreated.push(movement);
     }
 
     // Recalculate status of the PO
-    // Check if everything ordered is received
     let totalOrdered = 0;
     let totalReceived = 0;
     poItems.forEach(it => {
@@ -995,24 +1246,36 @@ class WMSDatabase {
       po.status = "sent";
     }
 
-    this.save();
+    this.saveTenant(orgId);
     return { purchaseOrder: po, poItems, movementsCreated };
   }
 
   // Dispatch Orders
   public getDispatchOrders(orgId: string) {
-    return this.cache.dispatch_orders.filter(doOrder => doOrder.organization_id === orgId);
+    return this.getTenantCache(orgId).dispatch_orders;
   }
-  public getDispatchOrderById(id: string) {
+  public getDispatchOrderById(id: string, orgId?: string) {
+    if (orgId) {
+      return this.getTenantCache(orgId).dispatch_orders.find(doOrder => doOrder.id === id);
+    }
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].dispatch_orders.find(doOrder => doOrder.id === id);
+      if (found) return found;
+    }
     return this.cache.dispatch_orders.find(doOrder => doOrder.id === id);
   }
   public getDispatchOrderItems(doId: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].dispatch_order_items.filter(item => item.dispatch_order_id === doId);
+      if (found.length > 0) return found;
+    }
     return this.cache.dispatch_order_items.filter(item => item.dispatch_order_id === doId);
   }
   public addDispatchOrder(doOrder: DispatchOrder, items: Array<Omit<DispatchOrderItem, "id" | "dispatch_order_id">>) {
-    this.cache.dispatch_orders.push(doOrder);
+    const orgId = doOrder.organization_id;
+    const tenant = this.getTenantCache(orgId);
+    tenant.dispatch_orders.push(doOrder);
     
-    // Allocate reserved stocks immediately to guarantee security (if pending)
     const formattedItems = items.map(it => {
       const formatted: DispatchOrderItem = {
         id: "doi-" + crypto.randomUUID(),
@@ -1022,11 +1285,11 @@ class WMSDatabase {
         quantity_dispatched: it.quantity_dispatched || 0,
         unit_price: it.unit_price
       };
-      this.cache.dispatch_order_items.push(formatted);
+      tenant.dispatch_order_items.push(formatted);
       return formatted;
     });
 
-    this.save();
+    this.saveTenant(orgId);
     return { dispatchOrder: doOrder, items: formattedItems };
   }
 
@@ -1038,13 +1301,14 @@ class WMSDatabase {
     itemsDispatched: Array<{
       product_id: string;
       quantity_dispatched: number;
-      batch_number: string; // which batch to subtract from
+      batch_number: string;
     }>;
     userId: string;
   }) {
     const { orgId, doId, dispatchWarehouseId, itemsDispatched, userId } = params;
+    const tenant = this.getTenantCache(orgId);
 
-    const dispatchOrderObj = this.getDispatchOrderById(doId);
+    const dispatchOrderObj = this.getDispatchOrderById(doId, orgId);
     if (!dispatchOrderObj || dispatchOrderObj.organization_id !== orgId) {
       throw new Error("Dispatch Order not found");
     }
@@ -1053,7 +1317,7 @@ class WMSDatabase {
     }
 
     // Verify warehouse
-    const wh = this.getWarehouseById(dispatchWarehouseId);
+    const wh = this.getWarehouseById(dispatchWarehouseId, orgId);
     if (!wh || wh.organization_id !== orgId) throw new Error("Invalid source warehouse");
 
     const doItemsObj = this.getDispatchOrderItems(doId);
@@ -1067,7 +1331,7 @@ class WMSDatabase {
       if (!matchedOrderItem) throw new Error(`Product '${dTx.product_id}' is not requested in this Order`);
 
       // Find precise batch record
-      const invRecord = this.cache.inventory.find(
+      const invRecord = tenant.inventory.find(
         i => i.warehouse_id === dispatchWarehouseId &&
              i.product_id === dTx.product_id &&
              i.batch_number === dTx.batch_number
@@ -1099,7 +1363,7 @@ class WMSDatabase {
         created_at: new Date().toISOString()
       };
       
-      this.cache.stock_movements.push(movement);
+      tenant.stock_movements.push(movement);
       movementsCreated.push(movement);
     }
 
@@ -1114,26 +1378,35 @@ class WMSDatabase {
     if (totalDispatched >= totalRequested) {
       dispatchOrderObj.status = "dispatched";
     } else if (totalDispatched > 0) {
-      dispatchOrderObj.status = "packed"; // in process
+      dispatchOrderObj.status = "packed";
     } else {
       dispatchOrderObj.status = "picking";
     }
     dispatchOrderObj.dispatch_date = new Date().toISOString().split("T")[0];
 
-    this.save();
+    this.saveTenant(orgId);
     return { dispatchOrder: dispatchOrderObj, doItems: doItemsObj, movementsCreated };
   }
 
   // API Keys
   public getApiKeys(orgId: string) {
-    return this.cache.api_keys.filter(k => k.organization_id === orgId);
+    return this.getTenantCache(orgId).api_keys;
   }
   public addApiKey(k: ApiKey) {
-    this.cache.api_keys.push(k);
-    this.save();
+    const tenant = this.getTenantCache(k.organization_id);
+    tenant.api_keys.push(k);
+    this.saveTenant(k.organization_id);
     return k;
   }
   public findApiKeyByHash(hash: string) {
+    for (const key of Object.keys(this.caches)) {
+      const found = this.caches[key].api_keys.find(k => k.key_hash === hash && k.is_active);
+      if (found) {
+        found.last_used_at = new Date().toISOString();
+        this.saveTenant(found.organization_id);
+        return found;
+      }
+    }
     const key = this.cache.api_keys.find(k => k.key_hash === hash && k.is_active);
     if (key) {
       key.last_used_at = new Date().toISOString();
@@ -1142,10 +1415,11 @@ class WMSDatabase {
     return key;
   }
   public revokeApiKey(id: string, orgId: string) {
-    const key = this.cache.api_keys.find(k => k.id === id && k.organization_id === orgId);
+    const tenant = this.getTenantCache(orgId);
+    const key = tenant.api_keys.find(k => k.id === id && k.organization_id === orgId);
     if (key) {
       key.is_active = false;
-      this.save();
+      this.saveTenant(orgId);
     }
     return key;
   }

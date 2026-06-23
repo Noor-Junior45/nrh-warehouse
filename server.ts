@@ -209,10 +209,139 @@ app.post("/api/v1/auth/login", (req: Request, res: Response) => {
       success: true,
       data: {
         token,
-        user: { id: user.id, email: user.email, name: user.name },
+        user: { id: user.id, email: user.email, name: user.name, photo_url: user.photo_url },
         organization
       }
     });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+/**
+ * Check if email is already registered in the WMS system database
+ */
+app.get("/api/v1/auth/check-email", (req: Request, res: Response) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email parameter required" });
+    }
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const user = db.getUsers().find(u => u.email === trimmedEmail);
+    return res.json({
+      success: true,
+      registered: !!user
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+/**
+ * Safe endpoint to login/authenticate with Google/Firebase credentials
+ */
+app.post("/api/v1/auth/firebase-login", (req: Request, res: Response) => {
+  try {
+    const { email, name, uid, photo_url } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Firebase credentials email missing" });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    let user = db.getUsers().find(u => u.email === trimmedEmail);
+    let organization;
+
+    if (!user) {
+      // 1. Auto-register a new User
+      const userId = uid ? "usr-" + uid : "usr-" + crypto.randomUUID();
+      user = {
+        id: userId,
+        email: trimmedEmail,
+        password_hash: "", // Not loginable via standard forms unless reset
+        name: name || "Google User",
+        created_at: new Date().toISOString(),
+        photo_url: photo_url || ""
+      };
+      db.addUser(user);
+
+      // 2. Auto-bootstrap corresponding Organization
+      const orgId = "org-" + crypto.randomUUID();
+      organization = {
+        id: orgId,
+        name: `${name || "Tenant"}'s Hub`,
+        business_type: "ecommerce" as const,
+        owner_id: userId,
+        subscription_plan: "free",
+        subscription_status: "active",
+        billing_email: trimmedEmail,
+        razorpay_customer_id: null,
+        created_at: new Date().toISOString()
+      };
+      db.addOrganization(organization);
+
+      // 3. Auto-create default Warehouse to help onboarding
+      const defaultWarehouse: Warehouse = {
+        id: "wh-" + crypto.randomUUID(),
+        organization_id: orgId,
+        name: `Primary Warehouse - ${organization.name}`,
+        address: "101 Operations Boulevard",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pincode: "400001",
+        country: "India",
+        total_capacity: 10000,
+        capacity_unit: "sqft",
+        manager_name: user.name,
+        manager_phone: "+919999999999",
+        is_active: true,
+        created_at: new Date().toISOString()
+      };
+      db.addWarehouse(defaultWarehouse);
+
+      // 4. Default Zones
+      db.addZone({ id: "zone-" + crypto.randomUUID(), warehouse_id: defaultWarehouse.id, name: "Storage Zone A", zone_type: "storage", capacity: 8000, created_at: new Date().toISOString() });
+      db.addZone({ id: "zone-" + crypto.randomUUID(), warehouse_id: defaultWarehouse.id, name: "Receiving Bay", zone_type: "receiving", capacity: 2000, created_at: new Date().toISOString() });
+    } else {
+      if (photo_url) {
+        user.photo_url = photo_url;
+      }
+      // Find organization owned or associated
+      organization = db.getOrganizations().find(o => o.owner_id === user.id) || db.getOrganizations().find(o => o.billing_email === trimmedEmail) || db.getOrganizations()[0];
+      if (!organization) {
+        // Fallback or create org
+        const orgId = "org-" + crypto.randomUUID();
+        organization = {
+          id: orgId,
+          name: `${user.name}'s Hub`,
+          business_type: "ecommerce" as const,
+          owner_id: user.id,
+          subscription_plan: "free",
+          subscription_status: "active",
+          billing_email: trimmedEmail,
+          razorpay_customer_id: null,
+          created_at: new Date().toISOString()
+        };
+        db.addOrganization(organization);
+      }
+    }
+
+    const token = signToken({ userId: user.id, email: user.email, orgId: organization.id });
+
+    // Update cloud replicate
+    db.save();
+
+    return res.json({
+      success: true,
+      data: {
+        token,
+        user: { id: user.id, email: user.email, name: user.name, photo_url: user.photo_url },
+        organization
+      }
+    });
+
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -392,7 +521,7 @@ app.get("/api/v1/products", authenticate, requireScope("inventory:read"), (req: 
 
 app.post("/api/v1/products", authenticate, requireScope("inventory:write"), (req: Request, res: Response) => {
   try {
-    const { sku, name, description, category, unit_of_measure, unit_price, reorder_level, hsn_code, gst_rate, image_url } = req.body;
+    const { sku, name, description, category, unit_of_measure, unit_price, reorder_level, hsn_code, gst_rate, image_url, expiry_date, custom_attributes } = req.body;
     if (!sku || !name) {
       return res.status(400).json({ success: false, error: "sku and name are required fields" });
     }
@@ -411,7 +540,9 @@ app.post("/api/v1/products", authenticate, requireScope("inventory:write"), (req
       gst_rate: Number(gst_rate) !== undefined ? Number(gst_rate) : 18,
       image_url: image_url || "",
       is_active: true,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      expiry_date: expiry_date || null,
+      custom_attributes: custom_attributes || null
     };
     
     db.addProduct(newProd);

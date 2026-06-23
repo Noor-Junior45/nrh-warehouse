@@ -148,16 +148,12 @@ export default function Warehouses({
               <input required type="text" value={whName} onChange={e => setWhName(e.target.value)} placeholder="e.g. Cold Chain North" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Manager Contact Name</label>
-              <input type="text" value={manager} onChange={e => setManager(e.target.value)} placeholder="e.g. Ramesh Nair" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
-            </div>
-            <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Address *</label>
-              <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Plot 18, MIDC Ind Area" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
+              <input required type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Plot 18, MIDC Ind Area" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">City</label>
-              <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Mumbai" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">City *</label>
+              <input required type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Mumbai" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">State / Pincode</label>
@@ -165,17 +161,6 @@ export default function Warehouses({
                 <input type="text" value={state} onChange={e => setState(e.target.value)} placeholder="MH" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
                 <input type="text" value={pincode} onChange={e => setPincode(e.target.value)} placeholder="400001" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
               </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total capacity value / unit</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
-                <input type="text" value={capacityUnit} onChange={e => setCapacityUnit(e.target.value)} className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-slate-50/50" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Manager Phone</label>
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+919999999999" className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-slate-400 bg-slate-50/50" />
             </div>
           </div>
           <button disabled={loading} type="submit" className="w-full text-xs font-bold py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors cursor-pointer">
@@ -283,15 +268,9 @@ export default function Warehouses({
               </div>
 
               {/* Warehouse Footer Info block */}
-              <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1 text-slate-500">
-                  <User size={13} />
-                  <span>{wh.manager_name || "Unassigned"}</span>
-                </div>
-                <div className="flex items-center gap-1 text-slate-500 justify-end">
-                  <Phone size={13} />
-                  <span>{wh.manager_phone || "No phone"}</span>
-                </div>
+              <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[10px]">Secure Storage Node</span>
+                <span className="font-mono text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-extrabold uppercase uppercase">Active</span>
               </div>
             </div>
           );
