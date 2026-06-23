@@ -1,0 +1,6 @@
+{
+  "name": "Warehouse Management System Backend & Dashboard",
+  "description": "Multi-tenant Warehouse Management System (WMS) backend featuring real-time stock tracking, zone management, inbound/outbound fulfillment, automatic stock movements, and API endpoints for billing integrations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
